@@ -88,6 +88,39 @@ const TodoList = () => {
 
 https://codesandbox.io/s/react-typescript-forked-w91cq
 
+## RESET
+
+Ref: https://github.com/react-spring/jotai/issues/217
+
+```js
+import { atom, useAtom } from "jotai";
+import { atomWithReset, useResetAtom, RESET } from 'jotai/utils'
+
+const dollarsAtom = atomWithReset(0);
+const centsAtom = atom(
+  (get) => get(dollarsAtom) * 100,
+  (get, set, newValue: number | typeof RESET) =>
+    set(dollarsAtom, newValue === RESET ? newValue : newValue / 100)
+);
+
+const ResetExample: React.FC = () => {
+  const [dollars] = useAtom(dollarsAtom);
+  const setCents = useUpdateAtom(centsAtom);
+  const resetCents = useResetAtom(centsAtom);
+
+  return (
+    <>
+      <h3>Current balance ${dollars}</h3>
+      <button onClick={() => setCents(100)}>Set $1</button>
+      <button onClick={() => setCents(200)}>Set $2</button>
+      <button onClick={resetCents}>Reset</button>
+    </>
+  );
+};
+```
+
+https://codesandbox.io/s/react-typescript-forked-41c0s
+
 ## useReducerAtom
 
 ```js
