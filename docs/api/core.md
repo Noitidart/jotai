@@ -52,6 +52,8 @@ const Provider: React.FC<{
 
 Atom configs don't hold values. Atom values are stored in a Provider. A Provider can be used like React context provider. Usually, we place one Provider at the root of the app, however you could use multiple Providers, each storing different atom values for its component tree.
 
+Provides the context in which atoms have values. Must be an ancestor of any component that uses any Recoil hooks. Multiple roots may co-exist; atoms will have distinct values within each root. If they are nested, the innermost root will completely mask any outer roots.
+
 ```js
 const Root = () => (
   <Provider>
@@ -72,6 +74,8 @@ const TestRoot = () => (
 )
 ```
 
+### atom scope
+
 A Provider accepts an optional prop `scope` which you can use for scoped atoms.
 It works only for atoms with the same scope.
 The recommendation for the scope value is a unique symbol.
@@ -91,6 +95,8 @@ const LibraryRoot = () => (
   </Provider>
 )
 ```
+
+Ref: https://github.com/pmndrs/jotai/issues/192
 
 ## useAtom
 

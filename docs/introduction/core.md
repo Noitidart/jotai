@@ -1,6 +1,63 @@
 This doc describes about jotai core behavior.
 For async behavior, refer [./async.md](async.md).
 
+Jotai state is stored inside Provider and could be accessed from any React
+component that is a descendants of Provider.
+
+When hook `useAtoms` is called from the component, new atom state is added to
+the Provider state. The argument of the `useAtom` hook is an atom config, that
+is returned from `atom` function. Sometimes atom state and atom config are
+simply called an atom, which refers to the independent unit of Jotai state.
+(Note: internally they correspond to `AtomState` type from
+`src/core/vanilla.ts` and `Atom` from `src/core/types.ts`).
+
+Simplest form of an atom config is a primitive atom that behaves in a way that
+emulates `useState` hook.
+
+```js
+import { atom, useAtom } from 'jotai'
+
+const counter = atom(0)
+
+function Counter() {
+  const [count, setCount] = useAtom(countAtom)
+  return (
+    <>
+      <h1>{count}</h1>
+      <button onClick={() => setCount((c) => c + 1)}>one up</button>
+    </>
+  )
+}
+```
+
+Primitive atom is defined as
+
+```js
+atom(initialValue)
+```
+
+where `initialValue` is any JavaScript value except for a function, which is
+reserved for a derived atoms.
+
+Derived atoms pass `read` function that will be invoked during React render
+phase, so the function has to be pure. What is pure in React is described
+[here](https://gist.github.com/sebmarkbage/75f0838967cd003cd7f9ab938eb1958f).
+One example of `read` function would be to compute new value out of existing
+atoms
+
+```js
+const uppercaseAtom = atom((get) => get(textAtom).toUpperCase())
+```
+
+The signature of `readFunction` is `(get) => Value | Promise<Value>`, and `get` is a function that takes an atom config and returns its value stored in Provider described below.
+Dependency is tracked, so if `get` is used for an atom at least once, the readFunction will be reevaluated whenever the atom value is changed.
+
+You can create atom configs on demand, just keep in mind that it will refer to
+the same atom state only if atom configs are referentially equal (is that true?)
+
+Some more examples of primitive hooks:
+Note on referential equality of an atom
+
 # API
 
 ## atom
@@ -18,15 +75,12 @@ There are two kinds of atoms: a writable atom and a read-only atom.
 Primitive atoms are always writable. Derived atoms are writable if `writeFunction` is specified.
 The `writeFunction` of primitive atoms is equivalent to the setState of React.useState.
 
-The signature of `readFunction` is `(get) => Value | Promise<Value>`, and `get` is a function that takes an atom config and returns its value stored in Provider described below.
-Dependency is tracked, so if `get` is used for an atom at least once, the readFunction will be reevaluated whenever the atom value is changed.
-
 The signature of writeFunction is `(get, set, update) => void | Promise<void>`.
 `get` is similar to the one described above, but it doesn't track the dependency. `set` is a function that takes an atom config and a new value which then updates the atom value in Provider. `update` is an arbitrary value that we receive from the updating function returned by `useAtom` described below.
 
 ## Provider
 
-Atom configs don't hold values. Atom values are stored in a Provider. A Provider can be used like React context provider. Usually, we place one Provider at the root of the app, however you could use multiple Providers, each storing different atom values for its component tree.
+Atom configs don't hold values. Atom values are stored in a Provider. A Provider can be used like React context provider. Usually, we place one Provider at the root of the app, however you could use multiple Providers, each storing different atom values for its component tree. K
 
 ```js
 const Root = () => (
@@ -76,25 +130,6 @@ const [value, updateValue] = useAtom(anAtom)
 
 The `updateValue` takes just one argument, which will be passed to the third argument of writeFunction of the atom. The behavior totally depends on how the writeFunction is implemented.
 
-## useBridge/Bridge
-
-This will allow using accross multiple roots.
-You get a bridge value with `useBridge` in the outer component
-and pass it to `Bridge` in the inner component.
-
-```jsx
-const Component = ({ children }) => {
-  const bridgeValue = useBridge()
-  return (
-    <AnotherRerender>
-      <Bridge value={bridgeValue}>{children}</Bridge>
-    </AnotherRerender>
-  )
-}
-```
-
-A working example: https://codesandbox.io/s/jotai-r3f-fri9d
-
 # How atom dependency works
 
 To begin with, let's explain this. In the current implementation, every time we invoke the "read" function, we refresh dependencies. For example, If A depends on B, it means that B is a dependency of A, and A is a dependent of B.
@@ -131,7 +166,6 @@ Check [atomFamily](https://github.com/pmndrs/jotai/blob/master/docs/utils.md#ato
 
 - If you create a primitive atom, it will use predefined read/write functions to emulate `useState` behavior.
 - If you create an atom with read/write functions, they can provide any behavior with some restrictions as follows.
-- `read` function will be invoked during React render phase, so the function has to be pure. What is pure in React is described [here](https://gist.github.com/sebmarkbage/75f0838967cd003cd7f9ab938eb1958f).
 - `write` function will be invoked where you called initially and in useEffect for following invocations. So, you shouldn't call `write` in render.
 - When an atom is initially used with `useAtom`, it will invoke `read` function to get the initial value, this is recursive process. If an atom value exists in Provider, it will be used instead of invoking `read` function.
 - Once an atom is used (and stored in Provider), it's value is only updated if its dependencies are updated (including updating directly with useAtom).
